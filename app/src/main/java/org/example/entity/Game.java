@@ -10,28 +10,32 @@ import java.util.Set;
 
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
 @Getter
 @Setter
 @Slf4j
 @Entity
 @Table(name = "game")
 public class Game {
-
-    @Column(name = "game_name")
-    private String gameName;
-
     @Id
     @Column(name = "game_id")
     private Long gameId;
 
-    @Column(name = "original_price")
+    @Column(name = "game_name")
+    private String gameName;
+
+    @Column(name = "steam_game_id")
+    private Long steamAppId;
+
+    @Column(name = "epic_game_id")
+    private Long epicGameId;
+
+    @Column(name= "original_price",precision = 10, scale = 2)
     private BigDecimal originalPrice;
 
-    @Column(name = "current_price")
+    @Column(name = "current_price", precision = 10, scale = 2)
     private BigDecimal currentPrice;
 
-    @ManyToMany(mappedBy = "games")
-    private Set<User> users = new HashSet<>();
+    @OneToMany(mappedBy = "game")
+    private Set<UserGame> userTracking = new HashSet<>();
 
 }
