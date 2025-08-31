@@ -18,16 +18,17 @@ import java.util.Set;
 public class Game {
     @Id
     @Column(name = "game_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long gameId;
 
     @Column(name = "game_name")
     private String gameName;
 
     @Column(name = "steam_game_id")
-    private Long steamAppId;
+    private String steamAppId;
 
     @Column(name = "epic_game_id")
-    private Long epicGameId;
+    private String epicGameId;
 
     @Column(name= "original_price",precision = 10, scale = 2)
     private BigDecimal originalPrice;

@@ -19,7 +19,9 @@ public class UserService {
     public String registerUser(long chatId, String name){
          var user = userRepository.findByChatId(chatId);
          if (user.isPresent()){
-             return "User already exists";
+             user.get().setFirstName(name);
+             userRepository.save(user.get());
+             return "User already exists. " + "Name changed to " + name;
          }
          User newUser = new User();
          newUser.setChatId(chatId);

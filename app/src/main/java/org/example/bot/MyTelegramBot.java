@@ -2,8 +2,16 @@ package org.example.bot;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.example.entity.Game;
+import org.example.entity.User;
+import org.example.entity.UserGame;
+import org.example.repository.GameRepository;
+import org.example.repository.UserGameRepository;
+import org.example.repository.UserRepository;
+import org.example.service.SteamPriceFetchService;
 import org.example.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -12,20 +20,32 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
+
 @Component
 @Slf4j
 public class MyTelegramBot extends TelegramLongPollingBot {
     private final UserService userService;
     private final BotCommands botCommands;
     private final String botUsername;
+    private final UserRepository userRepository;
+    private final GameRepository gameRepository;
+    private final SteamPriceFetchService priceFetchService;
+    private final UserGameRepository userGameRepository;
     public MyTelegramBot(UserService userService,
                          BotCommands botCommands,
                          @Value("${telegram.bot.username}") String botUsername,
-                         @Value("${telegram.bot.token}") String botToken) {
+                         @Value("${telegram.bot.token}") String botToken, UserRepository userRepository, GameRepository gameRepository, SteamPriceFetchService priceFetchService, UserGameRepository userGameRepository) {
         super(botToken);
         this.userService = userService;
         this.botCommands = botCommands;
         this.botUsername = botUsername;
+        this.userRepository = userRepository;
+        this.gameRepository = gameRepository;
+        this.priceFetchService = priceFetchService;
+        this.userGameRepository = userGameRepository;
 
         log.info("Bot '{}' is being created.", this.botUsername);
         if (botToken == null || botToken.isBlank()) {
@@ -71,10 +91,10 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                         sendMessage(chatId,"Fetching the free games..... (coming soon)");
                         break;
                     case "/setalert":
-                        sendMessage(chatId,"Setting alert..... (coming soon)");
+                        handleSetAlert(chatId,messageText);
                         break;
                     case "/myalerts":
-                        sendMessage(chatId,"Fetching your alerts..... (coming soon)");
+                        checkPriceAlerts();
                         break;
                     default:
                         sendMessage(chatId,"Sorry, I don't recognize that command.");
@@ -85,8 +105,74 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             }
         }
     }
+    @Scheduled(fixedRate = 3600000)
+    public void checkPriceAlerts() {
+        List<UserGame> userGames = userGameRepository.findAll();
 
-    private void sendMessage(long chatId, String text){
+        for (UserGame userGame : userGames) {
+            String steamAppId = userGame.getGame().getSteamAppId();
+            if (steamAppId == null) continue;
+            sendMessage(
+                        userGame.getUser().getChatId(),
+                        "Here are the games you have set tracker for : \n " +   userGame.getGame().getGameName() + "\n"
+                );
+            }
+        }
+
+    private void handleSetAlert(long chatId, String messageText) {
+        String[] parts = messageText.split(" ", 2); // Split into command and rest
+        if (parts.length < 2) {
+            sendMessage(chatId, "Usage: /setalert <Game Name> <Target Price>");
+            return;
+        }
+
+        String[] gameAndPrice = parts[1].trim().split(" ");
+        if (gameAndPrice.length < 2) {
+            sendMessage(chatId, "Invalid format. Example: /setalert Sea of Thieves 2000");
+            return;
+        }
+        String priceStr = gameAndPrice[gameAndPrice.length - 1];
+        String gameName = String.join(" ", Arrays.copyOf(gameAndPrice, gameAndPrice.length - 1));
+        BigDecimal desiredPrice;
+        try {
+            desiredPrice = new BigDecimal(priceStr.replaceAll("[^\\d.]", "")); // remove any currency symbols
+        } catch (NumberFormatException e) {
+            sendMessage(chatId, "Invalid price format.");
+            return;
+        }
+
+        Game game = gameRepository.findByGameNameIgnoreCase(gameName)
+                .orElseGet(() -> {
+                    String steamAppId = priceFetchService.fetchSteamAppId(gameName);
+                    if (steamAppId == null) {
+                        sendMessage(chatId, "Game not found on Steam: " + gameName);
+                        return null;
+                    }
+                    Game newGame = new Game();
+                    newGame.setGameName(gameName);
+                    newGame.setSteamAppId(steamAppId);
+                    return gameRepository.save(newGame);
+                });
+
+        if (game == null) return;
+
+        User user = userRepository.findByChatId(chatId)
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setChatId(chatId);
+                    return userRepository.save(newUser);
+                });
+
+        UserGame userGame = new UserGame();
+        userGame.setUser(user);
+        userGame.setGame(game);
+        userGame.setDesiredPrice(desiredPrice);
+        userGameRepository.save(userGame);
+
+        sendMessage(chatId, "Alert set for " + game.getGameName() + " at ₹" + desiredPrice);
+    }
+
+    public void sendMessage(long chatId, String text){
         SendMessage message = new SendMessage(String.valueOf(chatId), text);
         try {
             execute(message);
