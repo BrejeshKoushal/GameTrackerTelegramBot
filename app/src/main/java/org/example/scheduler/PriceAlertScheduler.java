@@ -24,7 +24,7 @@ public class PriceAlertScheduler {
     private final MyTelegramBot telegramBot;
 
     @Scheduled(fixedRate = 3600000) // every 1 hour
-    public void checkPriceAlerts() {
+    public void checkSteamPriceAlerts() {
         List<PriceAlert> alerts = priceAlertRepository.findByNotifiedFalse();
 
         for (PriceAlert alert : alerts) {
@@ -45,4 +45,5 @@ public class PriceAlertScheduler {
             }
         }
     }
+
 }

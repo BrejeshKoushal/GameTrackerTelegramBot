@@ -11,9 +11,9 @@ public class BotCommands {
         return List.of(
                 new BotCommand("/start","Start the bot"),
                 new BotCommand("/register", "Register yourself (e.g.,  /register Rohan)"),
-                new BotCommand("/freegamestoday", "Get a list of today's free games"),
                 new BotCommand("/setalert", "Track a game (e.g., /setalert Cyberpunk 20.50)"),
-                new BotCommand("/myalerts", "See all your active game alerts")
+                new BotCommand("/myalerts", "See all your active game alerts"),
+                new BotCommand("deletealert","Delete an alert (e.g., /deletealert CyberPunk 20.50)")
         );
     }
 }

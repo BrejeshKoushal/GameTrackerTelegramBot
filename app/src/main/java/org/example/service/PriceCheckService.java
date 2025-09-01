@@ -2,7 +2,9 @@ package org.example.service;
 
 import org.example.repository.GameRepository;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+@Service
 public class PriceCheckService {
     private final GameRepository gameRepository;
     private final SteamPriceFetchService steamService;
